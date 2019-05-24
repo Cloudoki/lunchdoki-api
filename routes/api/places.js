@@ -36,14 +36,60 @@ router.get('/', (req,res) => {
 
 // POST Request
 router.post('/', (req,res) => {
-    return res.json({
-        "type": "section",
-        "text": {
-            "type": "plain_text",
-            "text": "This is a plain text section block.",
-            "emoji": true
-        }
-    })
+    return res.json(
+        [      
+            {
+                "type": "section",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Here's a list of the closest restaurants in the area",
+                    "emoji": true
+                }
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "1st Restaurant",
+                            "emoji": true
+                        },
+                        "value": "click_me_123"
+                    }
+                ]
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "2nd Restaurant",
+                            "emoji": true
+                        },
+                        "value": "click_me_123"
+                    }
+                ]
+            },
+                {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "3nd Restaurant",
+                            "emoji": true
+                        },
+                        "value": "click_me_123"
+                    }
+                ]
+            }
+        ]
+    )
 })
     
 module.exports = router;
