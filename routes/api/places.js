@@ -9,10 +9,11 @@ const options = {
     url: 'https://developers.zomato.com/api/v2.1/search?entity_id=82029&entity_type=subzone&lat=38.728579&lon=-9.152448&radius=1000&sort=real_distance&order=asc'
 }
 
-
-axios(options)
-    .then((res) => {
-        const both = res.data.restaurants.map(item => {
+// GET Request - Zomato API
+router.get('/', (req,res) => {
+    // Zomato Request 
+    axios(options).then((resp) => {
+        const rest = resp.data.restaurants.map(item => {
             return {
                 name: item.restaurant.name,
                 address: item.restaurant.location.address,
@@ -22,13 +23,27 @@ axios(options)
                     {latitude: item.restaurant.location.latitude, longitude: item.restaurant.location.longitude}
                 ) + " m"  
             }
-        });
-        router.get('/', (req,res) => res.send(both));       
-    })
-    .catch(err => {
-        const resp = err;
-        router.get('/', (req,res) => res.send(resp));
-    }); 
+        })
+        // Return a list of the nearest restaurants in Marquês de Pombal 
+        res.json(rest)
+    }).catch((err) => {
+        // If there's an error
+        console.log("Zomato API:", err)
+        res.send(err)
+    })    
+})
 
+
+// POST Request
+router.post('/', (req,res) => {
+    return res.json({
+        "type": "section",
+        "text": {
+            "type": "plain_text",
+            "text": "This is a plain text section block.",
+            "emoji": true
+        }
+    })
+})
     
 module.exports = router;
