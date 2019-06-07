@@ -6,19 +6,124 @@ const datefns = require('date-fns')
 const router = express.Router();
 
 // Globals
-let n = 1
+let n = 0
 
 // Template
 const zmModel = require('../../models/z-basemodel')
 const zmResponse = require('../../models/z-responsemodel')
+const zmLocation = require('../../models/z-locationmodel')
 
-// Zomato Options
-const options = {
-    method: 'GET',
-    headers: { 'user-key': 'de4fa22b5fad42417f1e8041249ebdbb' },
-    url: 'https://developers.zomato.com/api/v2.1/search?entity_id=82029&entity_type=subzone&lat=38.728579&lon=-9.152448&radius=1000&sort=real_distance&order=asc&count=5'
+// API Keys
+const zomatoAPIKey = require('../../config/keys').apiZomatoKey
+
+const checkAvailableLocations = async (res) => {
+
+    try {
+        const resp = await zmLocation.find({}, ['gm_location_name'], { sort: { loc_id: 1 } })
+
+        if (resp.length === 0) {
+            console.log("Nada")
+            return [
+                {
+                    "label": "No locations available",
+                    "text": "No locations available"
+                }
+            ]
+        }
+        else {
+            const results = resp.map(result => {
+                const fresult = {
+                    "label": result.gm_location_name,
+                    "value": result.gm_location_name
+                }
+                return fresult
+            })
+            return results
+
+        }
+
+    } catch (err) {
+        throw (err)
+    }
 }
 
+// Zomato Options
+const openConfigDialog = async (req, res) => {
+
+    try {
+        const available_location = await checkAvailableLocations(res)
+        console.log(available_location)
+        const options = {
+            method: 'POST',
+            url: 'https://slack.com/api/dialog.open',
+            headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": "Bearer xoxp-633263569218-633263569986-644690936272-3f75a157bd0049dc4d19c7239450d991" },
+            data: {
+                "token": req.body.token,
+                "trigger_id": req.body.trigger_id,
+                "dialog": {
+                    "callback_id": "app-config",
+                    "title": "Configurations",
+                    "submit_label": "Apply",
+                    "elements": [
+                        {
+                            "type": "text",
+                            "label": "Location Defined",
+                            "name": "loc_input",
+                            "hint": "A street or specific coordinates",
+                            "placeholder": "7123 Greenrose Ave. Schererville, IN 46375"
+                        },
+                        {
+                            "type": "select",
+                            "label": "Available Locations",
+                            "name": "loc_available",
+                            "hint": "Recently added locations",
+                            "placeholder": "Select a location",
+                            "optional": true,
+                            "options": available_location
+                        },
+                        {
+                            "type": "text",
+                            "subtype": "number",
+                            "label": "Location Defined",
+                            "name": "loc_count",
+                            "hint": "Number of results shown. Default is 5.\n Maximum value is 20",
+                            "placeholder": "5",
+                            "value": "5",
+                            "optional": true
+                        }
+
+                    ]
+                }
+            }
+        }
+
+        const resp = await axios(options)
+
+
+    } catch (error) {
+        throw (error)
+    }
+
+    // axios(options).then((result) => { res.send() }).catch((err) => console.log(err))
+}
+
+
+
+const sendHelpResp = (req, res) => {
+    axios.post(req.body.response_url, {
+        "blocks": [
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": "*Correct usage of /test*\n - */test* [f - Filter] [config - Configuration Dialog]\n - */test with no parameters* - Default values defined in /test config"
+                    }
+                ]
+            }
+        ]
+    }).then(() => res.send())
+}
 
 const createResponseModel = (restheader, res) => {
     const id = "my_unique_id_" + uuid()
@@ -32,14 +137,20 @@ const createResponseModel = (restheader, res) => {
     res.json(restheader)
     console.log("[Response]: Copy Created")
 
-
 }
 
-const zomatoRequest = () => {
-    // Zomato Request
-    return axios(options).then((resp) => {
+const zomatoRequest = async () => {
+    try {
+        const loc_defined = await retrieveDefinedLocation()
+        const finalURL = loc_defined.url
+        const options = {
+            method: 'GET',
+            headers: { 'user-key': zomatoAPIKey },
+            url: finalURL
+        }
+
+        const resp = await axios(options)
         let i = 0
-        // Slack - Restaurant Voting Options
         const restopt = resp.data.restaurants.map(item => {
             return {
                 "text": {
@@ -50,8 +161,6 @@ const zomatoRequest = () => {
                 "value": "value-" + (i++)
             }
         })
-
-        // Slack  - Restaurant Info
         const restinfo = resp.data.restaurants.map(item => {
             return {
                 "type": "section",
@@ -61,7 +170,7 @@ const zomatoRequest = () => {
                         (item.restaurant.user_rating.aggregate_rating === 0 ? item.restaurant.user_rating.rating_text : item.restaurant.user_rating.aggregate_rating) +
                         "\n" + "*Distance:* " +
                         geolib.getDistance(
-                            { latitude: 38.728549, longitude: -9.152448 },
+                            { latitude: loc_defined.lat, longitude: loc_defined.lng },
                             { latitude: item.restaurant.location.latitude, longitude: item.restaurant.location.longitude }
                         ) + " m" + "\n" +
                         "*Average Cost for Two*: " + item.restaurant.average_cost_for_two + item.restaurant.currency + "\n" +
@@ -74,8 +183,6 @@ const zomatoRequest = () => {
                 }
             }
         })
-
-        // Slack - Full Response
         const restheader = {
             "response_type": "in_channel",
             "blocks":
@@ -106,17 +213,16 @@ const zomatoRequest = () => {
                     ...restinfo
 
                 ]
-        } 
+        }
         return restheader
-    }).catch((err) => {
-        // If there's an error
-        console.log("Zomato API:", err)
-        throw err
-    })
+    } catch (error) {
+        throw (error)
+    }
+
 }
 
 // Zomato Request and DB Interaction
-const zomatoDBOperations = (res) => {
+const zomatoDBOperations = (req, res) => {
 
     // DB Model Save/Update
     zmModel.find({ rid: n }, (err, docs) => {
@@ -129,17 +235,40 @@ const zomatoDBOperations = (res) => {
                 riSave.save()
                 console.log("[/test]: Item added to the DB")
 
-                createResponseModel(restheader,res)
+                createResponseModel(restheader, res)
                 console.log("Success!")
             }).catch((err) => {
                 // If there's an error
-                console.log("Zomato API:", err)
-                res.send(err)
+
+                if (err.constructor == TypeError) {
+                    const ops = {
+                        method: "POST",
+                        url: 'https://slack.com/api/chat.postEphemeral',
+                        headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": "Bearer xoxp-633263569218-633263569986-644690936272-3f75a157bd0049dc4d19c7239450d991" },
+                        data: {
+                            "user": req.body.user_id,
+                            "channel": req.body.channel_id,
+                            "text": "*Error:* Please define a location in the API config",
+                            "attachments": [
+                                {
+
+                                    "text": "Correct usage: /test config",
+                                    "color": "warning"
+                                }
+                            ]
+                        }
+                    }
+                    axios(ops).then((resp) => { res.send() }).catch((err) => console.log(err))
+
+                } else {
+                    console.log("Zomato API:", err)
+                    res.send(err)
+                }
             })
 
         } else {
 
-            
+
             const updated = docs[0].updatedAt
             let diff = datefns.differenceInDays(new Date().toISOString(), updated)
             if (diff >= 7) { // Se já tiver passado uma semana - A base de dados leva update
@@ -147,7 +276,7 @@ const zomatoDBOperations = (res) => {
                     zmModel.updateOne({ rid: n }, { slack_interface: restheader, rid: n += 1 }, (err, res) => {
                         if (!err) return console.log("[/test]: Item succesfully updated - Last Update: %s days ago", diff)
                     })
-                    createResponseModel(restheader,res)
+                    createResponseModel(restheader, res)
                 }).catch(err => {
                     console.log(err)
                     res.send(err)
@@ -156,7 +285,7 @@ const zomatoDBOperations = (res) => {
             else { // Se ainda nao tiver passado uma semana retorna os dados salvos na base de dados
                 console.log("[/test]: Request already present in the Database. Loaded instead")
                 createResponseModel(docs[0].slack_interface, res)
-                
+
             }
 
         }
@@ -164,8 +293,27 @@ const zomatoDBOperations = (res) => {
 
 }
 
+const retrieveDefinedLocation = async () => {
+    try {
+        const resp = await zmLocation.findOne({}, null, { sort: { loc_id: -1 } })
+        return {
+            url: resp.zomato_gen_url,
+            lat: resp.lat,
+            lng: resp.lng
+        }
+    } catch (err) {
+        throw (err)
+    }
+}
+
 // Send Zomato Response to Slack and Save it in the Database
 router.post('/', (req, res) => {
-    zomatoDBOperations(res)
+    // Requests   
+    switch (req.body.text) {
+        case '': zomatoDBOperations(req, res); break;
+        case 'help': sendHelpResp(req, res); break;
+        case 'config': openConfigDialog(req, res); break;
+        //case 'result': checkAvailableLocations(res); break;
+    }
 })
 module.exports = router;
