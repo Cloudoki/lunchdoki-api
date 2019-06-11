@@ -22,13 +22,14 @@ const checkAvailableLocations = async (res) => {
         const resp = await zmLocation.find({}, ['gm_location_name'], { sort: { loc_id: 1 } })
 
         if (resp.length === 0) {
-            console.log("Nada")
-            return [
+            const teste =[
                 {
                     "label": "No locations available",
-                    "text": "No locations available"
+                    "value": "No locations available"
                 }
             ]
+            res.send()
+            return teste
         }
         else {
             const results = resp.map(result => {
@@ -38,25 +39,29 @@ const checkAvailableLocations = async (res) => {
                 }
                 return fresult
             })
+            res.send()
             return results
 
         }
 
+        
     } catch (err) {
         throw (err)
     }
 }
 
+const apiSlackKey = require('../../config/keys').apiSlackKey
+
 // Zomato Options
 const openConfigDialog = async (req, res) => {
 
     try {
+        
         const available_location = await checkAvailableLocations(res)
-        console.log(available_location)
         const options = {
             method: 'POST',
             url: 'https://slack.com/api/dialog.open',
-            headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": "Bearer xoxp-633263569218-633263569986-644690936272-3f75a157bd0049dc4d19c7239450d991" },
+            headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": apiSlackKey },
             data: {
                 "token": req.body.token,
                 "trigger_id": req.body.trigger_id,
@@ -70,7 +75,8 @@ const openConfigDialog = async (req, res) => {
                             "label": "Location Defined",
                             "name": "loc_input",
                             "hint": "A street or specific coordinates",
-                            "placeholder": "7123 Greenrose Ave. Schererville, IN 46375"
+                            "placeholder": "7123 Greenrose Ave. Schererville, IN 46375",
+                            "optional": true
                         },
                         {
                             "type": "select",
@@ -84,12 +90,11 @@ const openConfigDialog = async (req, res) => {
                         {
                             "type": "text",
                             "subtype": "number",
-                            "label": "Location Defined",
+                            "label": "Result Count",
                             "name": "loc_count",
                             "hint": "Number of results shown. Default is 5.\n Maximum value is 20",
                             "placeholder": "5",
                             "value": "5",
-                            "optional": true
                         }
 
                     ]
@@ -97,14 +102,19 @@ const openConfigDialog = async (req, res) => {
             }
         }
 
-        const resp = await axios(options)
-
+        const resp = await axios(options) 
+     
+        // Reset poll
+        zmModel.deleteOne({}, (err,res) => {
+            if(!err) return console.log("[Config]: Existed requests deleted")
+        })
+        zmResponse.deleteMany({}, (err,res) => {
+            if(!err) return console.log("[Config]: Existed responses deleted")
+        })
 
     } catch (error) {
         throw (error)
     }
-
-    // axios(options).then((result) => { res.send() }).catch((err) => console.log(err))
 }
 
 
@@ -244,11 +254,11 @@ const zomatoDBOperations = (req, res) => {
                     const ops = {
                         method: "POST",
                         url: 'https://slack.com/api/chat.postEphemeral',
-                        headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": "Bearer xoxp-633263569218-633263569986-644690936272-3f75a157bd0049dc4d19c7239450d991" },
+                        headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": apiSlackKey },
                         data: {
                             "user": req.body.user_id,
                             "channel": req.body.channel_id,
-                            "text": "*Error:* Please define a location in the API config",
+                            "text": "*Error:* Please define or select a location in the API configuration",
                             "attachments": [
                                 {
 
@@ -267,7 +277,6 @@ const zomatoDBOperations = (req, res) => {
             })
 
         } else {
-
 
             const updated = docs[0].updatedAt
             let diff = datefns.differenceInDays(new Date().toISOString(), updated)
@@ -295,7 +304,8 @@ const zomatoDBOperations = (req, res) => {
 
 const retrieveDefinedLocation = async () => {
     try {
-        const resp = await zmLocation.findOne({}, null, { sort: { loc_id: -1 } })
+
+        const resp = await zmLocation.findOne({selected: true},null,{sort: {loc_id: -1}})
         return {
             url: resp.zomato_gen_url,
             lat: resp.lat,
@@ -313,7 +323,6 @@ router.post('/', (req, res) => {
         case '': zomatoDBOperations(req, res); break;
         case 'help': sendHelpResp(req, res); break;
         case 'config': openConfigDialog(req, res); break;
-        //case 'result': checkAvailableLocations(res); break;
     }
 })
 module.exports = router;

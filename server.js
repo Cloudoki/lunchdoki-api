@@ -17,7 +17,7 @@ const hook = require('./routes/api/hook');
 
 // DB Connection
 mongoose   
-    .connect(db, { useNewUrlParser: true})
+    .connect(db, { useNewUrlParser: true, useFindAndModify: false})
     .then(() => console.log('MongoDB Connected...'))
     .catch(err => console.log(err));
 

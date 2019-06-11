@@ -2,9 +2,6 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-// Globals
-let n = 0
-
 // API Keys
 const apiMapsKey = require('../../config/keys').apiMapsKey
 
@@ -12,33 +9,79 @@ const apiMapsKey = require('../../config/keys').apiMapsKey
 const zmRespModel = require('../../models/z-responsemodel');
 const zmLocation = require('../../models/z-locationmodel');
 
+
+const handleNullException = (res, payload) => {
+    console.log(payload)
+    return res.send({
+        "errors": [
+            {
+                "name": "loc_input",
+                "error": "Both fields can't be empty. One must be filled"
+            },
+            {
+                "name": "loc_available",
+                "error": "Both fields can't be empty. One must be filled"
+            }
+        ]
+        
+    })
+}
+
+
+const selectExistentLocation = (res, payload) => {
+
+    const sLocation = payload.submission.loc_available
+    const sCount = payload.submission.loc_count
+    // Só uma localização pode ser selecionada as outras que tiverem sido anteriormente selecionada
+    // voltam a ter o campo selected a false
+    zmLocation.find({ selected: true, gm_location_name: { $ne: sLocation } }, (err, resp) => {
+        if (resp.length !== 0) {
+            zmLocation.updateMany({ gm_location_name: { $ne: sLocation } }, { selected: false }, (error, respon) => {
+                if (!error) return console.log("[Location]: Selected state reset")
+            })
+        }
+    })
+
+
+    zmLocation.findOneAndUpdate({ gm_location_name: sLocation }, { selected: true}, (err, resp) => {   
+        const countStr = resp.zomato_gen_url.substring(resp.zomato_gen_url.lastIndexOf("count"), resp.zomato_gen_url.length)
+        const modifiedLink = resp.zomato_gen_url.replace(countStr, "count=" + sCount)
+        if (!err) {
+            console.log("[Location]: New selected location detected: ", payload.submission.loc_available)
+            zmLocation.updateOne({gm_location_name: sLocation},{$set:{zomato_gen_url: modifiedLink}}, (err,response) => {
+                if (!err) return console.log("[Location]: Count updated")
+            })
+        }
+    })
+    res.send()
+}
+
 const processPromptLocation = (res, payload) => {
     const rLocation = encodeURI(payload.submission.loc_input)
     const options = {
         method: "GET",
-        headers: {"Content-Type":"application/json"},
+        headers: { "Content-Type": "application/json" },
         url: `https://maps.googleapis.com/maps/api/geocode/json?key=${apiMapsKey}&address=${rLocation}`
     }
     axios(options)
         .then((resp) => {
             res.send()
             // Add Location URL to Database
-            zmLocation.find({gm_location_name: resp.data.results[0].formatted_address},(err,res) => {
-                if(res.length === 0)
-                {
+            zmLocation.find({ gm_location_name: resp.data.results[0].formatted_address }, (err, res) => {
+                if (res.length === 0) {
                     const newLocation = new zmLocation({
-                        loc_id: n,
                         gm_location_name: resp.data.results[0].formatted_address,
                         lat: resp.data.results[0].geometry.location.lat,
                         lng: resp.data.results[0].geometry.location.lng,
-                        zomato_gen_url: `https://developers.zomato.com/api/v2.1/search?lat=${resp.data.results[0].geometry.location.lat}&lon=${resp.data.results[0].geometry.location.lng}&sort=real_distance&order=asc&count=${payload.submission.loc_count}`
+                        zomato_gen_url: `https://developers.zomato.com/api/v2.1/search?lat=${resp.data.results[0].geometry.location.lat}&lon=${resp.data.results[0].geometry.location.lng}&sort=real_distance&order=asc&count=${payload.submission.loc_count}`,
+                        selected: true
                     })
                     newLocation.save()
-                } 
+                }
             })
         })
         .catch((err) => console.log(err))
-} 
+}
 
 const postPayloadData = (payload, vot, res) => {
     zmRespModel.findById(payload.message.blocks[0].block_id, (err, resp) => {
@@ -89,7 +132,7 @@ const postPayloadData = (payload, vot, res) => {
 
         resp.slack_interface.blocks = resp.slack_interface.blocks.map(block => {
             if (block.block_id >= 7) {
-                let alt_text = block.text.text.match(/\*[\w!-. Ç-ñ|\ô]*\*/) // Retorna numa array qualquer expressão que esteja entre *, tenha qualquer caracter e um espaço
+                let alt_text = block.text.text.match(/\*[A-zÀ-ÿ* |!-.]*\*/) // Retorna numa array qualquer expressão que esteja entre *, tenha qualquer caracter e um espaço
                 if (alt_text) alt_text = alt_text[0].replace(/\*/gi, '') // Substitui todos os asteriscos por nada (remove todos os asteriscos)
                 block = {
                     type: block.type,
@@ -132,8 +175,12 @@ router.post("/", (req, res) => {
     }
 
     if (typeof payload.callback_id != "undefined") {
-        n+=1
-        processPromptLocation(res, payload)
+        if (payload.submission.loc_input === null && payload.submission.loc_available !== null)
+            selectExistentLocation(res, payload)
+        else if (payload.submission.loc_available === null && payload.submission.loc_input !== null)
+            processPromptLocation(res, payload)
+        else if (payload.submission.loc_input === null && payload.submission.loc_available === null)
+            handleNullException(res, payload)
     }
     else {
         let votes = {}
@@ -143,3 +190,6 @@ router.post("/", (req, res) => {
 })
 
 module.exports = router;
+
+// Fix It: Lista de Votação só aparece numa votacão com 9 ou menos items
+///
