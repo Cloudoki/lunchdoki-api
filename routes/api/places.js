@@ -95,8 +95,49 @@ const openConfigDialog = async (req, res) => {
                             "hint": "Number of results shown. Default is 5.\n Maximum value is 10",
                             "placeholder": "5",
                             "value": "5",
+                        },
+                        {
+                            "type": "text",
+                            "label": "Rating",
+                            "name": "loc_rating",
+                            "hint": "Filter results by average rating",
+                            "optional": true,
+                            "placeholder": "3"
+                        },
+                        {
+                            "type": "text",
+                            "label": "Prefered Cuisines",
+                            "name": "loc_cuisines",
+                            "hint": "Filter results by cuisine",
+                            "optional": true,
+                            "placeholder": "Portuguese"
+                        },
+                        {
+                            "type": "select",
+                            "label": "Average Cost",
+                            "name": "loc_cost",
+                            "hint": "Filter results by average cost",
+                            "placeholder": "Select Range",
+                            "optional": true,
+                            "options": [
+                                {
+                                    "label": "Less than 10€",
+                                    "value": "Less than 10€"
+                                },
+                                {
+                                    "label": "10€ to 25€",
+                                    "value": "10€ to 25€"
+                                },
+                                {
+                                    "label": "25€ to 40€",
+                                    "value": "25€ to 40€"
+                                },
+                                {
+                                    "label": "More than 40€",
+                                    "value": "More than 40€"
+                                }
+                            ]
                         }
-
                     ]
                 }
             }
@@ -127,7 +168,7 @@ const sendHelpResp = (req, res) => {
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": "*Correct usage of /test*\n - */test* [f - Filter] [config - Configuration Dialog]\n - */test with no parameters* - Default values defined in /test config"
+                        "text": "*Correct usage of /test*\n - */test* [config - Configuration Dialog]\n - */test with no parameters* - Default values defined in /test config"
                     }
                 ]
             }

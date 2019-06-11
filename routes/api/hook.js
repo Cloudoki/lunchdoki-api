@@ -202,6 +202,3 @@ router.post("/", (req, res) => {
 })
 
 module.exports = router;
-
-// Fix It: Lista de Votação só aparece numa votacão com 9 ou menos items
-///
