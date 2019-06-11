@@ -92,7 +92,7 @@ const openConfigDialog = async (req, res) => {
                             "subtype": "number",
                             "label": "Result Count",
                             "name": "loc_count",
-                            "hint": "Number of results shown. Default is 5.\n Maximum value is 20",
+                            "hint": "Number of results shown. Default is 5.\n Maximum value is 10",
                             "placeholder": "5",
                             "value": "5",
                         }

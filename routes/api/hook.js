@@ -10,8 +10,18 @@ const zmRespModel = require('../../models/z-responsemodel');
 const zmLocation = require('../../models/z-locationmodel');
 
 
+const handleMaximumCount = (res,payload) => {
+    return res.send({
+        "errors": [
+            {
+                "name": "loc_count",
+                "error": "Typed value is above the limit"
+            }
+        ]
+    })
+}
+
 const handleNullException = (res, payload) => {
-    console.log(payload)
     return res.send({
         "errors": [
             {
@@ -23,10 +33,9 @@ const handleNullException = (res, payload) => {
                 "error": "Both fields can't be empty. One must be filled"
             }
         ]
-        
+
     })
 }
-
 
 const selectExistentLocation = (res, payload) => {
 
@@ -43,12 +52,12 @@ const selectExistentLocation = (res, payload) => {
     })
 
 
-    zmLocation.findOneAndUpdate({ gm_location_name: sLocation }, { selected: true}, (err, resp) => {   
+    zmLocation.findOneAndUpdate({ gm_location_name: sLocation }, { selected: true }, (err, resp) => {
         const countStr = resp.zomato_gen_url.substring(resp.zomato_gen_url.lastIndexOf("count"), resp.zomato_gen_url.length)
         const modifiedLink = resp.zomato_gen_url.replace(countStr, "count=" + sCount)
         if (!err) {
             console.log("[Location]: New selected location detected: ", payload.submission.loc_available)
-            zmLocation.updateOne({gm_location_name: sLocation},{$set:{zomato_gen_url: modifiedLink}}, (err,response) => {
+            zmLocation.updateOne({ gm_location_name: sLocation }, { $set: { zomato_gen_url: modifiedLink } }, (err, response) => {
                 if (!err) return console.log("[Location]: Count updated")
             })
         }
@@ -116,7 +125,7 @@ const postPayloadData = (payload, vot, res) => {
         })
 
 
-        if (resp.slack_interface.blocks.length < 12) {
+        if (resp.slack_interface.blocks.length <= 12) {
             resp.slack_interface.blocks.map((block) => {
                 if (block.accessory && block.accessory.alt_text)
                     resp.slack_interface.blocks.push({
@@ -175,7 +184,10 @@ router.post("/", (req, res) => {
     }
 
     if (typeof payload.callback_id != "undefined") {
-        if (payload.submission.loc_input === null && payload.submission.loc_available !== null)
+
+        if (payload.submission.loc_count > 10) 
+            handleMaximumCount(res, payload)
+        else if (payload.submission.loc_input === null && payload.submission.loc_available !== null)
             selectExistentLocation(res, payload)
         else if (payload.submission.loc_available === null && payload.submission.loc_input !== null)
             processPromptLocation(res, payload)
