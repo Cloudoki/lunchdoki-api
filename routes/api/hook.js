@@ -20,7 +20,7 @@ const filterInnerConfigurations = (sub, url, paramSample, paramValue) => {
                 finalURL = finalURL.replace(sub[i], paramSample[i] + paramValue[i])
             } else {
                 if (!finalURL.includes(paramSample[i])) {
-                    if (paramValue[i] !== null) 
+                    if (paramValue[i] !== null)
                         finalURL = [finalURL + paramSample[i] + paramValue[i]].join()
                 } else {
                     console.log("ENTROU AQUI 2")
@@ -70,12 +70,12 @@ const applyExistentFilters = (payload) => {
 const dialogValidations = (res, payload) => {
 
     // Definição de um limite de items mostrados por votação
-    if (payload.submission.loc_count > 10) {
+    if (payload.submission.loc_count > 10 || payload.submission.loc_count < 5) {
         return res.send({
             "errors": [
                 {
                     "name": "loc_count",
-                    "error": "Typed value is above the limit"
+                    "error": "Typed value is above the limit or below the limit"
                 }
             ]
         })
@@ -140,6 +140,7 @@ const processPromptLocation = (res, payload) => {
     })
 
     const rLocation = encodeURI(payload.submission.loc_input)
+    const rAverageCost = (applyExistentFilters(payload).cft !== null) ? ("&cft=" + applyExistentFilters(payload).cft) : ''
     const options = {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -155,7 +156,7 @@ const processPromptLocation = (res, payload) => {
                         gm_location_name: resp.data.results[0].formatted_address,
                         lat: resp.data.results[0].geometry.location.lat,
                         lng: resp.data.results[0].geometry.location.lng,
-                        zomato_gen_url: `https://developers.zomato.com/api/v2.1/search?lat=${resp.data.results[0].geometry.location.lat}&lon=${resp.data.results[0].geometry.location.lng}&radius=1000&sort=real_distance&order=asc&count=${payload.submission.loc_count}`,
+                        zomato_gen_url: `https://developers.zomato.com/api/v2.1/search?lat=${resp.data.results[0].geometry.location.lat}&lon=${resp.data.results[0].geometry.location.lng}&radius=1000&sort=real_distance&order=asc&count=${payload.submission.loc_count}${rAverageCost}`,
                         selected: true
                     })
                     newLocation.save()
@@ -197,8 +198,13 @@ const postPayloadData = (payload, vot, res) => {
             }
         })
 
+        // Variavel que devolve o numero de restaurantes listados na votação
+        const numbers = resp.slack_interface.blocks.filter(block => {
+            if(!block.block_id)
+                return block
+        })
 
-        if (resp.slack_interface.blocks.length <= 12) {
+        if (resp.slack_interface.blocks.length <= (numbers.length - 1) + 2) { // Fix It - Replace 6 with a variable that contains the number of items
             resp.slack_interface.blocks.map((block) => {
                 if (block.accessory && block.accessory.alt_text)
                     resp.slack_interface.blocks.push({
@@ -214,7 +220,7 @@ const postPayloadData = (payload, vot, res) => {
 
         resp.slack_interface.blocks = resp.slack_interface.blocks.map(block => {
             if (block.block_id >= 7) {
-                let alt_text = block.text.text.match(/\*[A-zÀ-ÿ* |!-.]*\*/) // Retorna numa array qualquer expressão que esteja entre *, tenha qualquer caracter e um espaço
+                let alt_text = block.text.text.match(/\*[A-zÀ-ÿ* |!-.\–]*\*/) // Retorna numa array qualquer expressão que esteja entre *, tenha qualquer caracter e um espaço
                 if (alt_text) alt_text = alt_text[0].replace(/\*/gi, '') // Substitui todos os asteriscos por nada (remove todos os asteriscos)
                 block = {
                     type: block.type,
@@ -255,6 +261,7 @@ router.post("/", (req, res) => {
     } catch (error) {
         payload = null
     }
+
 
     if (typeof payload.callback_id != "undefined") {
         dialogValidations(res, payload)
