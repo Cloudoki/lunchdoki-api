@@ -9,38 +9,101 @@ const apiMapsKey = require('../../config/keys').apiMapsKey
 const zmRespModel = require('../../models/z-responsemodel');
 const zmLocation = require('../../models/z-locationmodel');
 
-
-const handleMaximumCount = (res,payload) => {
-    return res.send({
-        "errors": [
-            {
-                "name": "loc_count",
-                "error": "Typed value is above the limit"
+const filterInnerConfigurations = (sub, url, paramSample, paramValue) => {
+    // paramSample é um excerto do url ligado ao paramValue
+    // paramValue é o valor que tem de ser definido juntamente com o paramSample no finalURL
+    // Esta função permite fazer a configuração de um ou mais filtros definidos como parametros de entrada
+    if (typeof sub === "object" && typeof paramSample === "object" && typeof paramValue === "object") {
+        let finalURL = url
+        for (let i = 0; i < sub.length; i++) {
+            if (sub[i] !== null) {
+                finalURL = finalURL.replace(sub[i], paramSample[i] + paramValue[i])
+            } else {
+                if (!finalURL.includes(paramSample[i])) {
+                    if (paramValue[i] !== null) 
+                        finalURL = [finalURL + paramSample[i] + paramValue[i]].join()
+                } else {
+                    console.log("ENTROU AQUI 2")
+                    const remadeSubstring = finalURL.substring(finalURL.lastIndexOf(paramSample[i]), finalURL.length)
+                    finalURL = finalURL.replace(remadeSubstring, paramSample[i] + paramValue[i])
+                }
             }
-        ]
-    })
+        };
+        return finalURL
+    } else {
+
+        if (sub !== null) { // Verifica se a substring introduzida como parametro de facto existe
+            const finalURL = url.replace(sub, paramSample + paramValue)
+            return finalURL
+        } else {
+            if (!url.includes(paramSample)) {
+                const finalURL = [url + paramSample + paramValue].join()
+                return finalURL
+            } else {
+                const remadeSubstring = url.substring(url.lastIndexOf(paramSample), url.length)
+                const finalURL = url.replace(remadeSubstring, paramSample + paramValue)
+                return finalURL
+            }
+        }
+    }
 }
 
-const handleNullException = (res, payload) => {
-    return res.send({
-        "errors": [
-            {
-                "name": "loc_input",
-                "error": "Both fields can't be empty. One must be filled"
-            },
-            {
-                "name": "loc_available",
-                "error": "Both fields can't be empty. One must be filled"
-            }
-        ]
+const getAverageCost = (payload) => {
+    if (payload.submission.loc_cost !== null) {
+        switch (payload.submission.loc_cost) {
+            case 'Less than 10€': return "0";
+            case '10€ to 25€': return "1";
+            case '25€ to 40€': return "2";
+            case 'More than 40€': return "3";
+        }
+    } else return null
+}
 
-    })
+const applyExistentFilters = (payload) => {
+    // Defined filters
+    let avgCost = getAverageCost(payload)
+    return {
+        cft: avgCost
+    }
+}
+
+const dialogValidations = (res, payload) => {
+
+    // Definição de um limite de items mostrados por votação
+    if (payload.submission.loc_count > 10) {
+        return res.send({
+            "errors": [
+                {
+                    "name": "loc_count",
+                    "error": "Typed value is above the limit"
+                }
+            ]
+        })
+    }
+    // Criação de uma exceção para evitar que dois campos fiquem ambos vazios
+    if (payload.submission.loc_input === null && payload.submission.loc_available === null) {
+        return res.send({
+            "errors": [
+                {
+                    "name": "loc_input",
+                    "error": "Both fields can't be empty. One must be filled"
+                },
+                {
+                    "name": "loc_available",
+                    "error": "Both fields can't be empty. One must be filled"
+                }
+            ]
+
+        })
+    }
 }
 
 const selectExistentLocation = (res, payload) => {
 
     const sLocation = payload.submission.loc_available
     const sCount = payload.submission.loc_count
+    const sCFT = applyExistentFilters(payload).cft
+
     // Só uma localização pode ser selecionada as outras que tiverem sido anteriormente selecionada
     // voltam a ter o campo selected a false
     zmLocation.find({ selected: true, gm_location_name: { $ne: sLocation } }, (err, resp) => {
@@ -51,13 +114,15 @@ const selectExistentLocation = (res, payload) => {
         }
     })
 
-
     zmLocation.findOneAndUpdate({ gm_location_name: sLocation }, { selected: true }, (err, resp) => {
+        // Adicição/Substituição do param Count ao Link
         const countStr = resp.zomato_gen_url.substring(resp.zomato_gen_url.lastIndexOf("count"), resp.zomato_gen_url.length)
-        const modifiedLink = resp.zomato_gen_url.replace(countStr, "count=" + sCount)
+        // Faz as devidas configurações aos filtros existentes e retorna um link final
+        const finalLink = filterInnerConfigurations([countStr, null], resp.zomato_gen_url, ["count=", "&cft="], [sCount, sCFT])
+        console.log(finalLink)
         if (!err) {
             console.log("[Location]: New selected location detected: ", payload.submission.loc_available)
-            zmLocation.updateOne({ gm_location_name: sLocation }, { $set: { zomato_gen_url: modifiedLink } }, (err, response) => {
+            zmLocation.updateOne({ gm_location_name: sLocation }, { $set: { zomato_gen_url: finalLink } }, (err, response) => {
                 if (!err) return console.log("[Location]: Count updated")
             })
         }
@@ -66,6 +131,14 @@ const selectExistentLocation = (res, payload) => {
 }
 
 const processPromptLocation = (res, payload) => {
+
+    // Coloca o campo select das outras localizações já existentes a false
+    zmLocation.find({ selected: true }, (err, res) => {
+        zmLocation.updateMany({}, { selected: false }, (error, resp) => {
+            if (!err) return console.log("[Location]: Selected state reset on those who had it true")
+        })
+    })
+
     const rLocation = encodeURI(payload.submission.loc_input)
     const options = {
         method: "GET",
@@ -82,7 +155,7 @@ const processPromptLocation = (res, payload) => {
                         gm_location_name: resp.data.results[0].formatted_address,
                         lat: resp.data.results[0].geometry.location.lat,
                         lng: resp.data.results[0].geometry.location.lng,
-                        zomato_gen_url: `https://developers.zomato.com/api/v2.1/search?lat=${resp.data.results[0].geometry.location.lat}&lon=${resp.data.results[0].geometry.location.lng}&sort=real_distance&order=asc&count=${payload.submission.loc_count}`,
+                        zomato_gen_url: `https://developers.zomato.com/api/v2.1/search?lat=${resp.data.results[0].geometry.location.lat}&lon=${resp.data.results[0].geometry.location.lng}&radius=1000&sort=real_distance&order=asc&count=${payload.submission.loc_count}`,
                         selected: true
                     })
                     newLocation.save()
@@ -184,15 +257,11 @@ router.post("/", (req, res) => {
     }
 
     if (typeof payload.callback_id != "undefined") {
-
-        if (payload.submission.loc_count > 10) 
-            handleMaximumCount(res, payload)
-        else if (payload.submission.loc_input === null && payload.submission.loc_available !== null)
+        dialogValidations(res, payload)
+        if (payload.submission.loc_input === null && payload.submission.loc_available !== null)
             selectExistentLocation(res, payload)
         else if (payload.submission.loc_available === null && payload.submission.loc_input !== null)
             processPromptLocation(res, payload)
-        else if (payload.submission.loc_input === null && payload.submission.loc_available === null)
-            handleNullException(res, payload)
     }
     else {
         let votes = {}
