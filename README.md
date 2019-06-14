@@ -38,4 +38,7 @@ it to the next poll;
 
 - **Result Count** - Changes the number of items listed in the poll;
 
+- **Prefered Cuisines** - Filters the show results by cuisine (Limited);
+
 - **Average Cost** - Filters the shown results by the selected range of average cost;
+

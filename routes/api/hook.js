@@ -8,6 +8,7 @@ const apiMapsKey = require('../../config/keys').apiMapsKey
 // Mongoose - API Pool - Model
 const zmRespModel = require('../../models/z-responsemodel');
 const zmLocation = require('../../models/z-locationmodel');
+const zmSearch = require('../../models/z-searchmodel');
 
 const filterInnerConfigurations = (sub, url, paramSample, paramValue) => {
     // paramSample é um excerto do url ligado ao paramValue
@@ -23,7 +24,6 @@ const filterInnerConfigurations = (sub, url, paramSample, paramValue) => {
                     if (paramValue[i] !== null)
                         finalURL = [finalURL + paramSample[i] + paramValue[i]].join()
                 } else {
-                    console.log("ENTROU AQUI 2")
                     const remadeSubstring = finalURL.substring(finalURL.lastIndexOf(paramSample[i]), finalURL.length)
                     finalURL = finalURL.replace(remadeSubstring, paramSample[i] + paramValue[i])
                 }
@@ -67,11 +67,11 @@ const applyExistentFilters = (payload) => {
     }
 }
 
-const dialogValidations = (res, payload) => {
+const dialogValidations = async (res, payload, search) => {
 
     // Definição de um limite de items mostrados por votação
     if (payload.submission.loc_count > 10 || payload.submission.loc_count < 5) {
-        return res.send({
+        res.send({
             "errors": [
                 {
                     "name": "loc_count",
@@ -79,10 +79,34 @@ const dialogValidations = (res, payload) => {
                 }
             ]
         })
+        return false
     }
+
+    // Validação de conteúdo introduzido em "Prefered Cuisines"
+    if (payload.submission.loc_cuisines !== null) {
+        let reg = new RegExp('\\b(\\w*' + payload.submission.loc_cuisines + '\\w*)\\b', 'g')
+        const resp = await zmSearch.find({ category: "Cuisine", alias: { $regex: reg } })
+        if (resp.length === 0) {
+            res.send({
+                "errors": [
+                    {
+                        "name": "loc_cuisines",
+                        "error": "Invalid cuisine"
+                    }
+                ]
+            })
+            return false
+        } else {
+            payload.submission.loc_cuisines = resp[0].name
+            const doc = await zmSearch.findOneAndUpdate({ name: resp[0].name }, { $inc: {searches: 1} })
+            console.log(doc)
+        }
+
+    }
+
     // Criação de uma exceção para evitar que dois campos fiquem ambos vazios
     if (payload.submission.loc_input === null && payload.submission.loc_available === null) {
-        return res.send({
+        res.send({
             "errors": [
                 {
                     "name": "loc_input",
@@ -95,17 +119,23 @@ const dialogValidations = (res, payload) => {
             ]
 
         })
+        return false
     }
+
+    return true
+
 }
 
-const selectExistentLocation = (res, payload) => {
+const selectExistentLocation = async (res, payload) => {
 
     const sLocation = payload.submission.loc_available
     const sCount = payload.submission.loc_count
     const sCFT = applyExistentFilters(payload).cft
+    const sCuisine = payload.submission.loc_cuisines
 
     // Só uma localização pode ser selecionada as outras que tiverem sido anteriormente selecionada
     // voltam a ter o campo selected a false
+
     zmLocation.find({ selected: true, gm_location_name: { $ne: sLocation } }, (err, resp) => {
         if (resp.length !== 0) {
             zmLocation.updateMany({ gm_location_name: { $ne: sLocation } }, { selected: false }, (error, respon) => {
@@ -118,7 +148,7 @@ const selectExistentLocation = (res, payload) => {
         // Adicição/Substituição do param Count ao Link
         const countStr = resp.zomato_gen_url.substring(resp.zomato_gen_url.lastIndexOf("count"), resp.zomato_gen_url.length)
         // Faz as devidas configurações aos filtros existentes e retorna um link final
-        const finalLink = filterInnerConfigurations([countStr, null], resp.zomato_gen_url, ["count=", "&cft="], [sCount, sCFT])
+        const finalLink = filterInnerConfigurations([countStr, null, null], resp.zomato_gen_url, ["count=", "&cft=", "&q="], [sCount, sCFT, sCuisine])
         console.log(finalLink)
         if (!err) {
             console.log("[Location]: New selected location detected: ", payload.submission.loc_available)
@@ -141,6 +171,7 @@ const processPromptLocation = (res, payload) => {
 
     const rLocation = encodeURI(payload.submission.loc_input)
     const rAverageCost = (applyExistentFilters(payload).cft !== null) ? ("&cft=" + applyExistentFilters(payload).cft) : ''
+    const rCuisine = (payload.submission.loc_cuisines !== null) ? ("&q=" + payload.submission.loc_cuisines) : ''
     const options = {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -156,7 +187,7 @@ const processPromptLocation = (res, payload) => {
                         gm_location_name: resp.data.results[0].formatted_address,
                         lat: resp.data.results[0].geometry.location.lat,
                         lng: resp.data.results[0].geometry.location.lng,
-                        zomato_gen_url: `https://developers.zomato.com/api/v2.1/search?lat=${resp.data.results[0].geometry.location.lat}&lon=${resp.data.results[0].geometry.location.lng}&radius=1000&sort=real_distance&order=asc&count=${payload.submission.loc_count}${rAverageCost}`,
+                        zomato_gen_url: `https://developers.zomato.com/api/v2.1/search?lat=${resp.data.results[0].geometry.location.lat}&lon=${resp.data.results[0].geometry.location.lng}&radius=1000&sort=real_distance&order=asc&count=${payload.submission.loc_count}${rAverageCost}${rCuisine}`,
                         selected: true
                     })
                     newLocation.save()
@@ -200,11 +231,11 @@ const postPayloadData = (payload, vot, res) => {
 
         // Variavel que devolve o numero de restaurantes listados na votação
         const numbers = resp.slack_interface.blocks.filter(block => {
-            if(!block.block_id)
+            if (!block.block_id)
                 return block
         })
 
-        if (resp.slack_interface.blocks.length <= (numbers.length - 1) + 2) { // Fix It - Replace 6 with a variable that contains the number of items
+        if (resp.slack_interface.blocks.length <= (numbers.length - 1) + 2) {
             resp.slack_interface.blocks.map((block) => {
                 if (block.accessory && block.accessory.alt_text)
                     resp.slack_interface.blocks.push({
@@ -254,7 +285,7 @@ const postPayloadData = (payload, vot, res) => {
 
 
 // POST - Option Click
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
     let payload
     try {
         payload = JSON.parse(req.body.payload)
@@ -264,13 +295,15 @@ router.post("/", (req, res) => {
 
 
     if (typeof payload.callback_id != "undefined") {
-        dialogValidations(res, payload)
-        if (payload.submission.loc_input === null && payload.submission.loc_available !== null)
-            selectExistentLocation(res, payload)
-        else if (payload.submission.loc_available === null && payload.submission.loc_input !== null)
-            processPromptLocation(res, payload)
-    }
-    else {
+        const isValid = await dialogValidations(res, payload, search)
+        if (isValid) {
+            if (payload.submission.loc_input === null && payload.submission.loc_available !== null)
+                selectExistentLocation(res, payload)
+            else if (payload.submission.loc_available === null && payload.submission.loc_input !== null)
+                processPromptLocation(res, payload)
+        }
+        res.send()
+    } else {
         let votes = {}
         postPayloadData(payload, votes, res)
     }
@@ -278,3 +311,6 @@ router.post("/", (req, res) => {
 })
 
 module.exports = router;
+
+// Fix It: Allow users to filter results by Rating
+
