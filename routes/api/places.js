@@ -22,7 +22,7 @@ const checkAvailableLocations = async (res) => {
         const resp = await zmLocation.find({}, ['gm_location_name'], { sort: { loc_id: 1 } })
 
         if (resp.length === 0) {
-            const teste =[
+            const teste = [
                 {
                     "label": "No locations available",
                     "value": "No locations available"
@@ -44,7 +44,7 @@ const checkAvailableLocations = async (res) => {
 
         }
 
-        
+
     } catch (err) {
         throw (err)
     }
@@ -56,7 +56,7 @@ const apiSlackKey = require('../../config/keys').apiSlackKey
 const openConfigDialog = async (req, res) => {
 
     try {
-        
+
         const available_location = await checkAvailableLocations(res)
         const options = {
             method: 'POST',
@@ -115,7 +115,7 @@ const openConfigDialog = async (req, res) => {
                                 {
                                     "label": "Cost",
                                     "value": "Cost"
-                                }  
+                                }
                             ]
                         },
                         {
@@ -157,14 +157,14 @@ const openConfigDialog = async (req, res) => {
             }
         }
 
-        const resp = await axios(options) 
-     
+        const resp = await axios(options)
+
         // Reset poll
-        zmModel.deleteOne({}, (err,res) => {
-            if(!err) return console.log("[Config]: Existed requests deleted")
+        zmModel.deleteOne({}, (err, res) => {
+            if (!err) return console.log("[Config]: Existed requests deleted")
         })
-        zmResponse.deleteMany({}, (err,res) => {
-            if(!err) return console.log("[Config]: Existed responses deleted")
+        zmResponse.deleteMany({}, (err, res) => {
+            if (!err) return console.log("[Config]: Existed responses deleted")
         })
 
     } catch (error) {
@@ -182,7 +182,7 @@ const sendHelpResp = (req, res) => {
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": "*Correct usage of /test*\n - */test* [config - Configuration Dialog]\n - */test with no parameters* - Default values defined in /test config"
+                        "text": "*Correct usage of /lunch*\n - */lunch* [config - Configuration Dialog]\n - */lunch with no parameters* - Default values defined in /lunch config"
                     }
                 ]
             }
@@ -215,6 +215,12 @@ const zomatoRequest = async () => {
         }
 
         const resp = await axios(options)
+
+        /*Cria uma exceção em caso de 5 ou menos resultados mostrados
+        if(resp.data.results_found < 5) return {
+            "text": "Not enough restaurants available according to your preferences"
+        }*/
+
         let i = 0
         const restopt = resp.data.restaurants.map(item => {
             return {
@@ -248,7 +254,7 @@ const zomatoRequest = async () => {
                 }
             }
         })
-        const restheader = {
+        let restheader = {
             "response_type": "in_channel",
             "blocks":
                 [
@@ -279,7 +285,19 @@ const zomatoRequest = async () => {
 
                 ]
         }
-        return restheader
+        return (resp.data.results_found > 5) ? restheader : restheader = {
+            "response_type": "in_channel",
+            "blocks":
+                [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": "Not enough results according to your *Search*"
+                        }
+                    }
+                ]
+        }
     } catch (error) {
         throw (error)
     }
@@ -317,7 +335,7 @@ const zomatoDBOperations = (req, res) => {
                             "attachments": [
                                 {
 
-                                    "text": "Correct usage: /test config",
+                                    "text": "Correct usage: /lunch config",
                                     "color": "warning"
                                 }
                             ]
@@ -360,7 +378,7 @@ const zomatoDBOperations = (req, res) => {
 const retrieveDefinedLocation = async () => {
     try {
 
-        const resp = await zmLocation.findOne({selected: true},null,{sort: {loc_id: -1}})
+        const resp = await zmLocation.findOne({ selected: true }, null, { sort: { loc_id: -1 } })
         return {
             url: resp.zomato_gen_url,
             lat: resp.lat,
