@@ -1,6 +1,8 @@
 const express = require('express');
 const axios = require('axios');
+const qs = require('querystring');
 const router = express.Router();
+
 
 // API Keys
 const apiMapsKey = require('../../config/keys').apiMapsKey
@@ -59,15 +61,28 @@ const getAverageCost = (payload) => {
     } else return null
 }
 
+const getSorting = (payload) => {
+    if (payload.submission.loc_sorting !== null) {
+        switch (payload.submission.loc_sorting) {
+            case 'Distance': return "real_distance asc";
+            case 'Cost': return "cost asc";
+            case 'Rating': return "rate desc";
+        }
+    } else return null
+}
+
 const applyExistentFilters = (payload) => {
     // Defined filters
     let avgCost = getAverageCost(payload)
+    let sorting = getSorting(payload)
     return {
-        cft: avgCost
+        cft: avgCost,
+        sort: sorting.substring(0, sorting.indexOf(' ')),
+        order: sorting.substring(sorting.indexOf(' ') + 1, sorting.length)
     }
 }
 
-const dialogValidations = async (res, payload, search) => {
+const dialogValidations = async (res, payload) => {
 
     // Definição de um limite de items mostrados por votação
     if (payload.submission.loc_count > 10 || payload.submission.loc_count < 5) {
@@ -80,28 +95,6 @@ const dialogValidations = async (res, payload, search) => {
             ]
         })
         return false
-    }
-
-    // Validação de conteúdo introduzido em "Prefered Cuisines"
-    if (payload.submission.loc_cuisines !== null) {
-        let reg = new RegExp('\\b(\\w*' + payload.submission.loc_cuisines + '\\w*)\\b', 'g')
-        const resp = await zmSearch.find({ category: "Cuisine", alias: { $regex: reg } })
-        if (resp.length === 0) {
-            res.send({
-                "errors": [
-                    {
-                        "name": "loc_cuisines",
-                        "error": "Invalid cuisine"
-                    }
-                ]
-            })
-            return false
-        } else {
-            payload.submission.loc_cuisines = resp[0].name
-            const doc = await zmSearch.findOneAndUpdate({ name: resp[0].name }, { $inc: {searches: 1} })
-            console.log(doc)
-        }
-
     }
 
     // Criação de uma exceção para evitar que dois campos fiquem ambos vazios
@@ -122,6 +115,25 @@ const dialogValidations = async (res, payload, search) => {
         return false
     }
 
+    // Validação de conteúdo introduzido em "Search"
+    if (payload.submission.loc_search !== null) {
+        //let reg = new RegExp('\\b(\\w*' + payload.submission.loc_search + '\\w*)\\b', 'g')
+        const resp = await zmSearch.find({ search_value: payload.submission.loc_search })
+        if (resp.length === 0) {
+            const newSearch = new zmSearch({
+                search_value: payload.submission.loc_search,
+                date: new Date(),
+                latest_user: payload.user.name
+            })
+            newSearch.save()
+            //return false
+        } else {
+            const doc = await zmSearch.findOneAndUpdate({ search_value: resp[0].search_value }, { $inc: { searches: 1 } })
+            console.log(doc)
+        }
+
+    }
+
     return true
 
 }
@@ -131,7 +143,9 @@ const selectExistentLocation = async (res, payload) => {
     const sLocation = payload.submission.loc_available
     const sCount = payload.submission.loc_count
     const sCFT = applyExistentFilters(payload).cft
-    const sCuisine = payload.submission.loc_cuisines
+    const sSort = applyExistentFilters(payload).sort
+    const sOrder = applyExistentFilters(payload).order
+    const sSearch = payload.submission.loc_search
 
     // Só uma localização pode ser selecionada as outras que tiverem sido anteriormente selecionada
     // voltam a ter o campo selected a false
@@ -145,10 +159,13 @@ const selectExistentLocation = async (res, payload) => {
     })
 
     zmLocation.findOneAndUpdate({ gm_location_name: sLocation }, { selected: true }, (err, resp) => {
-        // Adicição/Substituição do param Count ao Link
+
+        // Adição/Substituição dos params Count,Sort e Order ao Link
         const countStr = resp.zomato_gen_url.substring(resp.zomato_gen_url.lastIndexOf("count"), resp.zomato_gen_url.length)
+        const sortStr = resp.zomato_gen_url.substring(resp.zomato_gen_url.indexOf("sort"), resp.zomato_gen_url.indexOf("order") - 1)
+        const orderStr = resp.zomato_gen_url.substring(resp.zomato_gen_url.indexOf("order"), resp.zomato_gen_url.indexOf("count") - 1)
         // Faz as devidas configurações aos filtros existentes e retorna um link final
-        const finalLink = filterInnerConfigurations([countStr, null, null], resp.zomato_gen_url, ["count=", "&cft=", "&q="], [sCount, sCFT, sCuisine])
+        const finalLink = filterInnerConfigurations([sortStr, orderStr, countStr, null, null], resp.zomato_gen_url, ["sort=", "order=", "count=", "&cft=", "&q="], [sSort, sOrder, sCount, sCFT, sSearch])
         console.log(finalLink)
         if (!err) {
             console.log("[Location]: New selected location detected: ", payload.submission.loc_available)
@@ -171,7 +188,9 @@ const processPromptLocation = (res, payload) => {
 
     const rLocation = encodeURI(payload.submission.loc_input)
     const rAverageCost = (applyExistentFilters(payload).cft !== null) ? ("&cft=" + applyExistentFilters(payload).cft) : ''
-    const rCuisine = (payload.submission.loc_cuisines !== null) ? ("&q=" + payload.submission.loc_cuisines) : ''
+    const rSearch = (payload.submission.loc_search !== null) ? ("&q=" + payload.submission.loc_search) : ''
+    const rSort = applyExistentFilters(payload).sort
+    const rOrder = applyExistentFilters(payload).order
     const options = {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -187,7 +206,7 @@ const processPromptLocation = (res, payload) => {
                         gm_location_name: resp.data.results[0].formatted_address,
                         lat: resp.data.results[0].geometry.location.lat,
                         lng: resp.data.results[0].geometry.location.lng,
-                        zomato_gen_url: `https://developers.zomato.com/api/v2.1/search?lat=${resp.data.results[0].geometry.location.lat}&lon=${resp.data.results[0].geometry.location.lng}&radius=1000&sort=real_distance&order=asc&count=${payload.submission.loc_count}${rAverageCost}${rCuisine}`,
+                        zomato_gen_url: `https://developers.zomato.com/api/v2.1/search?lat=${resp.data.results[0].geometry.location.lat}&lon=${resp.data.results[0].geometry.location.lng}&radius=1000&sort=${rSort}&order=${rOrder}&count=${payload.submission.loc_count}${rAverageCost}${rSearch}`,
                         selected: true
                     })
                     newLocation.save()
@@ -251,7 +270,7 @@ const postPayloadData = (payload, vot, res) => {
 
         resp.slack_interface.blocks = resp.slack_interface.blocks.map(block => {
             if (block.block_id >= 7) {
-                let alt_text = block.text.text.match(/\*[A-zÀ-ÿ* |!-.\–]*\*/) // Retorna numa array qualquer expressão que esteja entre *, tenha qualquer caracter e um espaço
+                let alt_text = block.text.text.match(/\*[A-zÀ-ÿ* |!-.\—\d]*\*/) // Retorna numa array qualquer expressão que esteja entre *, tenha qualquer caracter e um espaço
                 if (alt_text) alt_text = alt_text[0].replace(/\*/gi, '') // Substitui todos os asteriscos por nada (remove todos os asteriscos)
                 block = {
                     type: block.type,
@@ -295,7 +314,7 @@ router.post("/", async (req, res) => {
 
 
     if (typeof payload.callback_id != "undefined") {
-        const isValid = await dialogValidations(res, payload, search)
+        const isValid = await dialogValidations(res, payload)
         if (isValid) {
             if (payload.submission.loc_input === null && payload.submission.loc_available !== null)
                 selectExistentLocation(res, payload)

@@ -97,20 +97,26 @@ const openConfigDialog = async (req, res) => {
                             "value": "5",
                         },
                         {
-                            "type": "text",
-                            "label": "Rating",
-                            "name": "loc_rating",
-                            "hint": "Filter results by average rating",
-                            "optional": true,
-                            "placeholder": "3"
-                        },
-                        {
-                            "type": "text",
-                            "label": "Prefered Cuisines",
-                            "name": "loc_cuisines",
-                            "hint": "Filter results by cuisine",
-                            "optional": true,
-                            "placeholder": "Portuguese"
+                            "type": "select",
+                            "label": "Sorting",
+                            "name": "loc_sorting",
+                            "hint": "Sort results by user preference. Rating is ordered by the most rated",
+                            "value": "Distance",
+                            "placeholder": "Distance",
+                            "options": [
+                                {
+                                    "label": "Distance",
+                                    "value": "Distance"
+                                },
+                                {
+                                    "label": "Rating",
+                                    "value": "Rating"
+                                },
+                                {
+                                    "label": "Cost",
+                                    "value": "Cost"
+                                }  
+                            ]
                         },
                         {
                             "type": "select",
@@ -137,6 +143,14 @@ const openConfigDialog = async (req, res) => {
                                     "value": "More than 40€"
                                 }
                             ]
+                        },
+                        {
+                            "type": "text",
+                            "label": "Search",
+                            "name": "loc_search",
+                            "hint": "Aditional Search",
+                            "optional": true,
+                            "placeholder": "eg: Portuguese"
                         }
                     ]
                 }
