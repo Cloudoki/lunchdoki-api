@@ -1,4 +1,4 @@
-# Lunchdoki-API 
+# Lunchdoki-API for Slack
 API for Lunch picking
 
 ## API Description
