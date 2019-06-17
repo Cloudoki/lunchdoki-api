@@ -28,7 +28,7 @@ To trigger the pool a parameter must be called:
 
 `/lunch config - Opens a dialog where you can manage all the available settings`
 
-Config paramter contains the following settings:
+Config parameter contains the following settings:
 
 - **Location Defined** - (optional) Let's a user define the location that's going to be used in the following polls
 Until a new location is defined, every poll will be initialized with the same location;
@@ -42,4 +42,4 @@ it to the next poll;
 
 - **Average Cost** - Filters the shown results by the selected range of average cost;
 
-- **Search** - A query field that helps getting more in-depth results (Optional); Can be used to obtain a specific type of restaurants.
+- **Search** - A query field that helps getting more in-depth results (Optional); Can be used to obtain a specific type of restaurants. This parameter affects the whole API and must be used only inside of its context
