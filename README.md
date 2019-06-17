@@ -38,7 +38,8 @@ it to the next poll;
 
 - **Result Count** - Changes the number of items listed in the poll;
 
-- **Prefered Cuisines** - Filters the show results by cuisine (Limited);
+- **Sorting** - Sorts the results by user prefence in terms of proximity, rating or cost
 
 - **Average Cost** - Filters the shown results by the selected range of average cost;
 
+- **Search** - A query field that helps getting more in-depth results (Optional); Can be used to obtain a specific type of restaurants.
