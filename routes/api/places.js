@@ -12,9 +12,18 @@ let n = 0
 const zmModel = require('../../models/z-basemodel')
 const zmResponse = require('../../models/z-responsemodel')
 const zmLocation = require('../../models/z-locationmodel')
+const zmWorkspace = require('../../models/z-workspaces')
 
 // API Keys
 const zomatoAPIKey = require('../../config/keys').apiZomatoKey
+
+const workspaceSelect = async (req) => {
+    const resp = await zmWorkspace.find({ workspace_id: req.body.team_id })
+    if (resp.length !== 0)
+        return "Bearer " + resp[0].access_token
+    else
+        return null
+}
 
 const checkAvailableLocations = async (res) => {
 
@@ -56,12 +65,12 @@ const apiSlackKey = require('../../config/keys').apiSlackKey
 const openConfigDialog = async (req, res) => {
 
     try {
-
         const available_location = await checkAvailableLocations(res)
+        const workspace_select = await workspaceSelect(req)
         const options = {
             method: 'POST',
             url: 'https://slack.com/api/dialog.open',
-            headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": apiSlackKey },
+            headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": (workspace_select !== null) ? workspace_select : apiSlackKey },
             data: {
                 "token": req.body.token,
                 "trigger_id": req.body.trigger_id,
@@ -159,13 +168,14 @@ const openConfigDialog = async (req, res) => {
 
         const resp = await axios(options)
 
+        /*
         // Reset poll
         zmModel.deleteOne({}, (err, res) => {
             if (!err) return console.log("[Config]: Existed requests deleted")
         })
         zmResponse.deleteMany({}, (err, res) => {
             if (!err) return console.log("[Config]: Existed responses deleted")
-        })
+        })*/
 
     } catch (error) {
         throw (error)
@@ -208,6 +218,7 @@ const zomatoRequest = async () => {
     try {
         const loc_defined = await retrieveDefinedLocation()
         const finalURL = loc_defined.url
+        const finalLocation = loc_defined.name
         const options = {
             method: 'GET',
             headers: { 'user-key': zomatoAPIKey },
@@ -215,11 +226,6 @@ const zomatoRequest = async () => {
         }
 
         const resp = await axios(options)
-
-        /*Cria uma exceção em caso de 5 ou menos resultados mostrados
-        if(resp.data.results_found < 5) return {
-            "text": "Not enough restaurants available according to your preferences"
-        }*/
 
         let i = 0
         const restopt = resp.data.restaurants.map(item => {
@@ -262,7 +268,7 @@ const zomatoRequest = async () => {
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": "*Hey <!everyone>* \n Here's a list of the closest restaurants in the area, shall we pick one?"
+                            "text": "*Hey <!everyone>* \n Here's a list of the closest restaurants in the area, shall we pick one?\n*" + finalLocation + "*"
                         }
                     },
                     {
@@ -305,29 +311,33 @@ const zomatoRequest = async () => {
 }
 
 // Zomato Request and DB Interaction
-const zomatoDBOperations = (req, res) => {
-
+const zomatoDBOperations = async (req, res) => {
+    const workspace_select = await workspaceSelect(req)
+    const locdefined = await retrieveDefinedLocation()
+    const loc = (locdefined !== null) ? locdefined.name : null
+    const urlParams = (locdefined !== null) ? locdefined.url.substring(locdefined.url.indexOf('?'), locdefined.url.length) : null
     // DB Model Save/Update
-    zmModel.find({ rid: n }, (err, docs) => {
+
+    zmModel.find({ location: loc, url_params: urlParams }, (err, docs) => {
         if (docs.length === 0) { // Se não haver documentos cria
             zomatoRequest().then((restheader) => {
                 const riSave = new zmModel({
-                    rid: n,
+                    location: loc,
+                    url_params: urlParams,
                     slack_interface: restheader
                 })
                 riSave.save()
                 console.log("[/test]: Item added to the DB")
-
                 createResponseModel(restheader, res)
                 console.log("Success!")
             }).catch((err) => {
                 // If there's an error
-
                 if (err.constructor == TypeError) {
+
                     const ops = {
                         method: "POST",
                         url: 'https://slack.com/api/chat.postEphemeral',
-                        headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": apiSlackKey },
+                        headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": (workspace_select !== null) ? workspace_select : apiSlackKey },
                         data: {
                             "user": req.body.user_id,
                             "channel": req.body.channel_id,
@@ -341,6 +351,7 @@ const zomatoDBOperations = (req, res) => {
                             ]
                         }
                     }
+
                     axios(ops).then((resp) => { res.send() }).catch((err) => console.log(err))
 
                 } else {
@@ -355,8 +366,8 @@ const zomatoDBOperations = (req, res) => {
             let diff = datefns.differenceInDays(new Date().toISOString(), updated)
             if (diff >= 7) { // Se já tiver passado uma semana - A base de dados leva update
                 zomatoRequest().then(restheader => {
-                    zmModel.updateOne({ rid: n }, { slack_interface: restheader, rid: n += 1 }, (err, res) => {
-                        if (!err) return console.log("[/test]: Item succesfully updated - Last Update: %s days ago", diff)
+                    zmModel.updateOne({ location: loc, url_params: urlParams }, { slack_interface: restheader }, (err, res) => {
+                        if (!err) return console.log("[/lunch]: Item succesfully updated - Last Update: %s days ago", diff)
                     })
                     createResponseModel(restheader, res)
                 }).catch(err => {
@@ -365,9 +376,8 @@ const zomatoDBOperations = (req, res) => {
                 })
             }
             else { // Se ainda nao tiver passado uma semana retorna os dados salvos na base de dados
-                console.log("[/test]: Request already present in the Database. Loaded instead")
+                console.log("[/lunch]: Request already present in the Database. Loaded instead")
                 createResponseModel(docs[0].slack_interface, res)
-
             }
 
         }
@@ -379,13 +389,21 @@ const retrieveDefinedLocation = async () => {
     try {
 
         const resp = await zmLocation.findOne({ selected: true }, null, { sort: { loc_id: -1 } })
-        return {
-            url: resp.zomato_gen_url,
-            lat: resp.lat,
-            lng: resp.lng
+        if (resp !== null) {
+            return {
+
+                name: resp.gm_location_name,
+                url: resp.zomato_gen_url,
+                lat: resp.lat,
+                lng: resp.lng
+            }
+        } else {
+            return null
         }
+
     } catch (err) {
         throw (err)
+
     }
 }
 
