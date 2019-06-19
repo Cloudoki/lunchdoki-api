@@ -10,9 +10,6 @@ const config = require('./config')
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }))
 
-// DB Config
-//const db = require('./config/keys').mongoURL
-
 // Routes
 const places = require('./routes/api/places');
 const hook = require('./routes/api/hook');
