@@ -14,6 +14,7 @@ const db = require('./config/keys').mongoURL
 // Routes
 const places = require('./routes/api/places');
 const hook = require('./routes/api/hook');
+const access = require('./routes/api/access');
 
 // DB Connection
 mongoose   
@@ -24,6 +25,7 @@ mongoose
 // Use Routes
 app.use('/places', places);
 app.use('/hook', hook);
+app.use('/access', access);
  
 // GET - HTTP Request based on a specific search in the API
 
