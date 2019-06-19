@@ -168,15 +168,6 @@ const openConfigDialog = async (req, res) => {
 
         const resp = await axios(options)
 
-        /*
-        // Reset poll
-        zmModel.deleteOne({}, (err, res) => {
-            if (!err) return console.log("[Config]: Existed requests deleted")
-        })
-        zmResponse.deleteMany({}, (err, res) => {
-            if (!err) return console.log("[Config]: Existed responses deleted")
-        })*/
-
     } catch (error) {
         throw (error)
     }
@@ -228,22 +219,46 @@ const zomatoRequest = async () => {
         const resp = await axios(options)
 
         let i = 0
+        let differ = ''
         const restopt = resp.data.restaurants.map(item => {
+
+            // Evita restaurantes com nomes repetidos
+            let j = 0
+            if (differ !== item.restaurant.name)
+                differ = item.restaurant.name
+            else
+            {
+                j+=1
+                differ = item.restaurant.name + " (" + j + ")"
+            }
+
             return {
                 "text": {
                     "type": "plain_text",
-                    "text": item.restaurant.name,
+                    "text": differ,
                     "emoji": true
                 },
                 "value": "value-" + (i++)
             }
         })
+
         const restinfo = resp.data.restaurants.map(item => {
+
+            // Evita restaurantes com nomes repetidos
+            let j = 0
+            if (differ !== item.restaurant.name)
+                differ = item.restaurant.name
+            else
+            {
+                j+=1
+                differ = item.restaurant.name + " (" + j + ")"
+            }
+
             return {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "*" + item.restaurant.name + "*" + "\n" + item.restaurant.location.address + "\n" + "*Rating:* " +
+                    "text": "*" + differ + "*" + "\n" + item.restaurant.location.address + "\n" + "*Rating:* " +
                         (item.restaurant.user_rating.aggregate_rating === 0 ? item.restaurant.user_rating.rating_text : item.restaurant.user_rating.aggregate_rating) +
                         "\n" + "*Distance:* " +
                         geolib.getDistance(
@@ -256,7 +271,7 @@ const zomatoRequest = async () => {
                 "accessory": {
                     "type": "image",
                     "image_url": item.restaurant.thumb || "https://via.placeholder.com/200x200.png?text=No+Image",
-                    "alt_text": item.restaurant.name
+                    "alt_text": differ
                 }
             }
         })
@@ -333,7 +348,7 @@ const zomatoDBOperations = async (req, res) => {
             }).catch((err) => {
                 // If there's an error
                 if (err.constructor == TypeError) {
-
+                    console.log(err)
                     const ops = {
                         method: "POST",
                         url: 'https://slack.com/api/chat.postEphemeral',

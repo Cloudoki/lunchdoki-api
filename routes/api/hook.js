@@ -115,9 +115,24 @@ const dialogValidations = async (res, payload) => {
         return false
     }
 
+    if (payload.submission.loc_input !== null && payload.submission.loc_available !== null) {
+        res.send({
+            "errors": [
+                {
+                    "name": "loc_input",
+                    "error": "Both fields can't be filled."
+                },
+                {
+                    "name": "loc_available",
+                    "error": "Both fields can't be filled."
+                }
+            ]
+        })
+        return false
+    }
+
     // Validação de conteúdo introduzido em "Search"
     if (payload.submission.loc_search !== null) {
-        //let reg = new RegExp('\\b(\\w*' + payload.submission.loc_search + '\\w*)\\b', 'g')
         const resp = await zmSearch.find({ search_value: payload.submission.loc_search })
         if (resp.length === 0) {
             const newSearch = new zmSearch({
@@ -126,7 +141,6 @@ const dialogValidations = async (res, payload) => {
                 latest_user: payload.user.name
             })
             newSearch.save()
-            //return false
         } else {
             const doc = await zmSearch.findOneAndUpdate({ search_value: resp[0].search_value }, { $inc: { searches: 1 } })
             console.log(doc)
