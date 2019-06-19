@@ -43,3 +43,12 @@ it to the next poll;
 - **Average Cost** - Filters the shown results by the selected range of average cost;
 
 - **Search** - A query field that helps getting more in-depth results (Optional); Can be used to obtain a specific type of restaurants. This parameter affects the whole API and must be used only inside of its context
+
+## Features
+
+- Ability to open inumerous customized polls and vote in each one.
+- Total votes count displayed in real-time for each option
+- Ability to change your vote and remove it.
+- Each poll displays the address that match the typed location (Might not equal)
+- Every option displayed is based on a range of 1km (but it does not mean that it's inside that range due to 
+related implemetations)
