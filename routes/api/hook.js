@@ -5,7 +5,9 @@ const router = express.Router();
 
 
 // API Keys
-const apiMapsKey = require('../../config/keys').apiMapsKey
+const config = require('../../config')
+const apiMapsKey = config.get('keys').gmaps
+
 
 // Mongoose - API Pool - Model
 const zmRespModel = require('../../models/z-responsemodel');

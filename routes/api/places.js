@@ -15,7 +15,8 @@ const zmLocation = require('../../models/z-locationmodel')
 const zmWorkspace = require('../../models/z-workspaces')
 
 // API Keys
-const zomatoAPIKey = require('../../config/keys').apiZomatoKey
+const config = require('../../config')
+const zomatoAPIKey = config.get('keys').zomato
 
 const workspaceSelect = async (req) => {
     const resp = await zmWorkspace.find({ workspace_id: req.body.team_id })
@@ -59,7 +60,7 @@ const checkAvailableLocations = async (res) => {
     }
 }
 
-const apiSlackKey = require('../../config/keys').apiSlackKey
+const apiSlackKey = config.get('keys').slack.key
 
 // Zomato Options
 const openConfigDialog = async (req, res) => {

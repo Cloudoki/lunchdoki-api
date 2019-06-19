@@ -5,15 +5,14 @@ const router = express.Router();
 router.get('/',(req,res) => {
 
     res.sendStatus(302)
-    const slackCID = require('../../config/keys').apiSlackCID
-    const slackCS = require('../../config/keys').apiSlackCS
     const zmWorkspace = require('../../models/z-workspaces')
+    const config = require('../../config')
 
     const options = {
         url: "https://slack.com/api/oauth.access",
         method: "POST",
         headers: {"Content-Type":"application/x-www-form-urlencoded"},
-        data: `client_id=${slackCID}&client_secret=${slackCS}&code=${req.query.code}`
+        data: `client_id=${config.get('keys').slack.client_id}&client_secret=${config.get('keys').slack.client_secret}&code=${req.query.code}`
     }
     axios(options)
         .then(resp => {
