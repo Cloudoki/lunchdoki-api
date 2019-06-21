@@ -14,6 +14,7 @@ app.use(bodyParser.urlencoded({ extended: true }))
 const places = require('./routes/api/places');
 const hook = require('./routes/api/hook');
 const access = require('./routes/api/access');
+const logger = require('./util/logger')
 
 const start = () => {
     // Use Routes
@@ -23,8 +24,8 @@ const start = () => {
     
     // GET - HTTP Request based on a specific search in the API
 
-    app.listen(config.get('port'),() => {
-        console.log('Server is running')    
+    app.listen(config.get('port'),() => { 
+        logger.info('Server is running')
     });
 }
 
@@ -32,7 +33,7 @@ const start = () => {
 mongoose   
     .connect(config.get('db'), { useNewUrlParser: true, useFindAndModify: false})
     .then(() => {
-        console.log('MongoDB Connected...')
+        logger.info('MongoDB Connected...')
         start()
     })
-    .catch(err => console.log(err));
+    .catch(err => logger.error(err));

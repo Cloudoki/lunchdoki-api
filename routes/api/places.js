@@ -4,7 +4,7 @@ const geolib = require('geolib');
 const uuid = require('uuid');
 const datefns = require('date-fns')
 const router = express.Router();
-
+const logger = require('../../util/logger')
 // Globals
 let n = 0
 
@@ -202,7 +202,7 @@ const createResponseModel = (restheader, res) => {
     })
     newResponse.save()
     res.json(restheader)
-    console.log("[Response]: Copy Created")
+    logger.info("[Response]: Copy Created")
 
 }
 
@@ -343,9 +343,9 @@ const zomatoDBOperations = async (req, res) => {
                     slack_interface: restheader
                 })
                 riSave.save()
-                console.log("[/test]: Item added to the DB")
+                logger.info("[/test]: Item added to the DB")
                 createResponseModel(restheader, res)
-                console.log("Success!")
+                logger.info("Success!")
             }).catch((err) => {
                 // If there's an error
                 if (err.constructor == TypeError) {
@@ -367,10 +367,10 @@ const zomatoDBOperations = async (req, res) => {
                         }
                     }
 
-                    axios(ops).then((resp) => { res.send() }).catch((err) => console.log(err))
+                    axios(ops).then((resp) => { res.send() }).catch((err) => logger.error(err))
 
                 } else {
-                    console.log("Zomato API:", err)
+                    logger.info("Zomato API:", err)
                     res.send(err)
                 }
             })
@@ -382,16 +382,16 @@ const zomatoDBOperations = async (req, res) => {
             if (diff >= 7) { // Se já tiver passado uma semana - A base de dados leva update
                 zomatoRequest().then(restheader => {
                     zmModel.updateOne({ location: loc, url_params: urlParams }, { slack_interface: restheader }, (err, res) => {
-                        if (!err) return console.log("[/lunch]: Item succesfully updated - Last Update: %s days ago", diff)
+                        if (!err) return logger.info("[/lunch]: Item succesfully updated - Last Update: %s days ago", diff)
                     })
                     createResponseModel(restheader, res)
                 }).catch(err => {
-                    console.log(err)
+                    logger.error(err)
                     res.send(err)
                 })
             }
             else { // Se ainda nao tiver passado uma semana retorna os dados salvos na base de dados
-                console.log("[/lunch]: Request already present in the Database. Loaded instead")
+                logger.info("[/lunch]: Request already present in the Database. Loaded instead")
                 createResponseModel(docs[0].slack_interface, res)
             }
 
@@ -424,11 +424,19 @@ const retrieveDefinedLocation = async () => {
 
 // Send Zomato Response to Slack and Save it in the Database
 router.post('/', (req, res) => {
-    // Requests   
+    // Requests
+    if (!req.body || (req.body && (!req.body.hasOwnProperty('text') || req.body.text == null))) {
+        logger.debug(req.body, '[PLACES Empty Body]')
+        return res.status(400).send("No body found")
+    }
     switch (req.body.text) {
         case '': zomatoDBOperations(req, res); break;
         case 'help': sendHelpResp(req, res); break;
         case 'config': openConfigDialog(req, res); break;
+        default: {
+            logger.debug(req.body, '[PLACES Invalid Operation]')
+            res.status(400).send('Invalid Operation'); 
+        } break;
     }
 })
 module.exports = router;
