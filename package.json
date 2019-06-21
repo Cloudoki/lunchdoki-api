@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "local": "source local.conf && node server.js",
-    "localmon": "source local.conf && nodemon server.js"
+    "localmon": "source local.conf && nodemon server.js | bunyan"
   },
   "author": "Marco Ribeiro",
   "license": "MIT",
@@ -21,7 +21,11 @@
     "mongoose": "^5.5.15",
     "mongoose-plugin-autoinc-fix": "^1.2.1",
     "mongoose-sequence": "^5.0.1",
+    "pino": "^5.12.6",
     "querystring": "^0.2.0",
     "uuid": "^3.3.2"
+  },
+  "devDependencies": {
+    "bunyan": "^1.8.12"
   }
 }

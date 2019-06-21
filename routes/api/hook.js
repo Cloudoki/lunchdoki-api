@@ -143,7 +143,7 @@ const dialogValidations = async (res, payload) => {
             newSearch.save()
         } else {
             const doc = await zmSearch.findOneAndUpdate({ search_value: resp[0].search_value }, { $inc: { searches: 1 } })
-            console.log(doc)
+            logger.info(doc)
         }
 
     }
@@ -167,7 +167,7 @@ const selectExistentLocation = async (res, payload) => {
     zmLocation.find({ selected: true, gm_location_name: { $ne: sLocation } }, (err, resp) => {
         if (resp.length !== 0) {
             zmLocation.updateMany({ gm_location_name: { $ne: sLocation } }, { selected: false }, (error, respon) => {
-                if (!error) return console.log("[Location]: Selected state reset")
+                if (!error) return logger.info("[Location]: Selected state reset")
             })
         }
     })
@@ -180,11 +180,11 @@ const selectExistentLocation = async (res, payload) => {
         const orderStr = resp.zomato_gen_url.substring(resp.zomato_gen_url.indexOf("order"), resp.zomato_gen_url.indexOf("count") - 1)
         // Faz as devidas configurações aos filtros existentes e retorna um link final
         const finalLink = filterInnerConfigurations([sortStr, orderStr, countStr, null, null], resp.zomato_gen_url, ["sort=", "order=", "count=", "&cft=", "&q="], [sSort, sOrder, sCount, sCFT, sSearch])
-        console.log(finalLink)
+        logger.info(finalLink)
         if (!err) {
-            console.log("[Location]: New selected location detected: ", payload.submission.loc_available)
+            logger.info("[Location]: New selected location detected: ", payload.submission.loc_available)
             zmLocation.updateOne({ gm_location_name: sLocation }, { $set: { zomato_gen_url: finalLink } }, (err, response) => {
-                if (!err) return console.log("[Location]: Count updated")
+                if (!err) return logger.info("[Location]: Count updated")
             })
         }
     })
@@ -196,7 +196,7 @@ const processPromptLocation = (res, payload) => {
     // Coloca o campo select das outras localizações já existentes a false
     zmLocation.find({ selected: true }, (err, res) => {
         zmLocation.updateMany({}, { selected: false }, (error, resp) => {
-            if (!err) return console.log("[Location]: Selected state reset on those who had it true")
+            if (!err) return logger.info("[Location]: Selected state reset on those who had it true")
         })
     })
 
@@ -212,7 +212,7 @@ const processPromptLocation = (res, payload) => {
     }
     axios(options)
         .then((resp) => {
-            console.log(resp)
+            logger.info(resp)
             res.send()
             // Add Location URL to Database
             zmLocation.find({ gm_location_name: resp.data.results[0].formatted_address }, (err, res) => {
@@ -228,7 +228,7 @@ const processPromptLocation = (res, payload) => {
                 }
             })
         })
-        .catch((err) => console.log(err))
+        .catch((err) => logger.error(err))
 }
 
 const postPayloadData = (payload, vot, res) => {
@@ -248,13 +248,13 @@ const postPayloadData = (payload, vot, res) => {
                         const newblock = block.text.text.replace("\n" + "<@" + payload.user.id + ">", "")
                         block.text.text = newblock
                         vot[block.accessory.alt_text] -= 1
-                        console.log("Mudança de voto")
+                        logger.info("Mudança de voto")
                     }
                     else {
                         if (block.accessory && block.accessory.alt_text && block.accessory.alt_text === selectedOption) {
                             vot[block.accessory.alt_text] += 1
                             block.text.text += ("\n" + "<@" + payload.user.id + ">")
-                            console.log("Voto Adicionado")
+                            logger.info("Voto Adicionado")
                         }
                     }
                     return block
@@ -310,14 +310,14 @@ const postPayloadData = (payload, vot, res) => {
                 },
                 slack_interface: resp.slack_interface
             }, (err, raw) => {
-                if (!err) return console.log("[Response]: Document modified, vote inserted")
+                if (!err) return logger.info("[Response]: Document modified, vote inserted")
             })
 
             if (!err) return axios.post(payload.response_url, resp.slack_interface)
-                .then((respon) => res.json(respon.data)).catch(err => console.log(err))
+                .then((respon) => res.json(respon.data)).catch(err => logger.error(err))
         } else {
             return axios.post(payload.response_url, {"text": "Closed poll. Votes are no longer acceptable"})
-                .then((respon) => console.log("[Closed Poll]: A poll was disabled")).catch(err => console.log(err))
+                .then((respon) => logger.info("[Closed Poll]: A poll was disabled")).catch(err => logger.error(err))
         }
     })
 
@@ -332,8 +332,8 @@ router.post("/", async (req, res) => {
     } catch (error) {
         payload = null
     }
-
-
+    
+    logger.info(payload, req.body)
     if (typeof payload.callback_id != "undefined") {
         const isValid = await dialogValidations(res, payload)
         if (isValid) {

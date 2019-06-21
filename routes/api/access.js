@@ -1,12 +1,16 @@
 const express = require('express');
 const axios = require('axios');
 const router = express.Router();
+const logger = require('../../util/logger')
 
 router.get('/',(req,res) => {
 
-    res.sendStatus(302)
     const zmWorkspace = require('../../models/z-workspaces')
     const config = require('../../config')
+
+    if(req.query.error) {
+        return res.send('App not added to workspace.')
+    }
 
     const options = {
         url: "https://slack.com/api/oauth.access",
@@ -24,10 +28,14 @@ router.get('/',(req,res) => {
                 access_token: resp.data.access_token
             })
             newWorkspace.save()
-            console.log(resp.data)
-            console.log(`New workspace added: ${resp.data.team_name} on channel ${resp.data.incoming_webhook.channel}`)
+            logger.info(resp.data)
+            logger.info(`New workspace added: ${resp.data.team_name} on channel ${resp.data.incoming_webhook.channel}`)
+            res.send(`New workspace added: ${resp.data.team_name} on channel ${resp.data.incoming_webhook.channel}`)
         })
-        .catch(err => console.log(err))
+        .catch(err => {
+            logger.error(err)
+            res.status(500).send('An error occurred')
+        })
 
 })
 
