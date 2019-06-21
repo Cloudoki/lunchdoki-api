@@ -4,14 +4,24 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "local": "source local.conf && node server.js",
+    "localmon": "source local.conf && nodemon server.js"
   },
   "author": "Marco Ribeiro",
   "license": "MIT",
   "dependencies": {
-    "axios": "^0.18.0",
+    "axios": "^0.19.0",
     "body-parser": "^1.19.0",
-    "express": "^4.17.0",
-    "geolib": "^2.0.24"
+    "convict": "^5.0.0",
+    "date-fns": "^1.30.1",
+    "express": "^4.17.1",
+    "geolib": "^2.0.24",
+    "i": "^0.3.6",
+    "mongoose": "^5.5.15",
+    "mongoose-plugin-autoinc-fix": "^1.2.1",
+    "mongoose-sequence": "^5.0.1",
+    "querystring": "^0.2.0",
+    "uuid": "^3.3.2"
   }
 }
