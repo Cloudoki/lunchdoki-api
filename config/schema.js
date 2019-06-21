@@ -44,5 +44,21 @@ module.exports = {
         format: 'port',
         default: 3000,
         env: "LUNCHDOKI_API_PORT"
+    },
+    pino: {
+        config: {
+            name: {
+                doc: 'API logger name',
+                format: String,
+                default: 'FOODOKI_API',
+            },
+            level: {
+                doc: 'Logger level',
+                format: ['trace', 'debug', 'info', 'warn', 'error', 'fatal'],
+                env: 'LUNCHDOKI_API_LOG_LEVEL',
+                default: 'trace',
+            },
+        },
+        pretty: true,
     }
 }
