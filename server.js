@@ -38,4 +38,4 @@ mongoose
 		logger.info('MongoDB Connected...')
 		start()
 	})
-	.catch(err => logger.errorq(err))
+	.catch(err => logger.error(err))
