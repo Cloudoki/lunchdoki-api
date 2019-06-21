@@ -40,7 +40,7 @@ module.exports = {
         env: "LUNCHDOKI_API_DB"
     },
     port: {
-        doc: "Google Maps GeoLocation Key",
+        doc: "Server Port",
         format: 'port',
         default: 3000,
         env: "LUNCHDOKI_API_PORT"

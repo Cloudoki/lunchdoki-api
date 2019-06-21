@@ -1,13 +1,11 @@
 const express = require('express');
 const axios = require('axios');
-const qs = require('querystring');
 const router = express.Router();
 
 
 // API Keys
 const config = require('../../config')
 const apiMapsKey = config.get('keys').gmaps
-
 
 // Mongoose - API Pool - Model
 const zmRespModel = require('../../models/z-responsemodel');
@@ -214,6 +212,7 @@ const processPromptLocation = (res, payload) => {
     }
     axios(options)
         .then((resp) => {
+            console.log(resp)
             res.send()
             // Add Location URL to Database
             zmLocation.find({ gm_location_name: resp.data.results[0].formatted_address }, (err, res) => {

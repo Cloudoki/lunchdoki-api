@@ -349,7 +349,6 @@ const zomatoDBOperations = async (req, res) => {
             }).catch((err) => {
                 // If there's an error
                 if (err.constructor == TypeError) {
-                    console.log(err)
                     const ops = {
                         method: "POST",
                         url: 'https://slack.com/api/chat.postEphemeral',

@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "local": "source local.conf && node server.js"
+    "local": "source local.conf && node server.js",
+    "localmon": "source local.conf && nodemon server.js"
   },
   "author": "Marco Ribeiro",
   "license": "MIT",
