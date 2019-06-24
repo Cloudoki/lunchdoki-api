@@ -28,7 +28,6 @@ router.get('/',(req,res) => {
 				access_token: resp.data.access_token,
 			})
 			newWorkspace.save()
-			logger.info(resp.data)
 			logger.info(`New workspace added: ${resp.data.team_name} on channel ${resp.data.incoming_webhook.channel}`)
 			res.send(`New workspace added: ${resp.data.team_name} on channel ${resp.data.incoming_webhook.channel}`)
 		})

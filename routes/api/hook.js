@@ -254,7 +254,6 @@ const processPromptLocation = (res, payload) => {
 	}
 	axios(options)
 		.then((resp) => {
-			logger.info(resp)
 			res.send()
 			// Add Location URL to Database
 			zmLocation.find({ gm_location_name: resp.data.results[0].formatted_address }, (err, res) => {
@@ -384,7 +383,6 @@ router.post('/', async (req, res) => {
 		payload = null
 	}
 
-	logger.info(payload, req.body)
 	if (typeof payload.callback_id != 'undefined') {
 		const isValid = await dialogValidations(res, payload)
 		if (isValid) {
