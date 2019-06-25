@@ -1,0 +1,53 @@
+body {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+    font-family: 'Montserrat', sans-serif;
+    background-image: url('/public/lisbon.jpg');
+}
+
+.container {
+    display: inline-block;
+    font-size: 2vw;
+    padding: 2rem;
+    left: 50%;
+    position: relative;
+    transform: translate(-50%);
+}
+
+@media screen and ( max-width: 800px ) 
+{
+   .container p {font-size: 1rem;};
+
+}
+
+.container img{
+    height: auto;
+    max-width: 5vw;
+    min-height: 2vh;
+    line-height: 0;
+    float: left;
+}
+
+.container p{
+    float: right;
+    line-height: 0;
+    margin-left: 1rem;
+}
+
+.msg {
+    text-align: center;
+    font-size: 1.5vw;
+}
+
+footer {
+    bottom: 0;
+    font-size: 1.2vw;
+    left: 2%;
+    position: fixed;
+}
+
+a {
+    text-decoration: none;
+    color: #000000
+}

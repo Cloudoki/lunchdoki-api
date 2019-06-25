@@ -285,7 +285,7 @@ const zomatoRequest = async () => {
 				'type': 'section',
 				'text': {
 					'type': 'mrkdwn',
-					'text': '*' + differ + '*' + '\n' + item.restaurant.location.address + '\n' + '*Rating:* ' +
+					'text': ('<' + item.restaurant.url + '|*' + differ + '*>') + '\n' + item.restaurant.location.address + '\n' + '*Rating:* ' +
 						(item.restaurant.user_rating.aggregate_rating === 0 ? item.restaurant.user_rating.rating_text : item.restaurant.user_rating.aggregate_rating) +
 						'\n' + '*Distance:* ' +
 						geolib.getDistance(
