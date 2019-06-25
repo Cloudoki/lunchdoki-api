@@ -9,7 +9,7 @@ router.get('/', (req, res) => {
 	const config = require('../../config')
 
 	if (req.query.error) {
-		return res.send('App not added to workspace.')
+		return res.render('main', {title: 'Lunchdoki - Rejected', message: 'App not added to workspace'})
 	}
 
 	const options = {
@@ -22,9 +22,9 @@ router.get('/', (req, res) => {
 		.then(resp => {
 			// Guarda o registo do workspace em que foi instalado ou verifica se já existe
 			zmWorkspace.findOneAndUpdate({ workspace_id: resp.data.team_id }, { access_token: resp.data.access_token }, (err, doc) => {
-				if (doc && doc.length) {
+				if (doc) {
 					logger.info('Access Token updated for current workspace')
-					res.send('Workspace Access Updated')
+					res.render('main', {title: 'Lunchdoki - Updated', message: 'Workspace Access Updated'})
 				}
 				else {
 
@@ -36,15 +36,14 @@ router.get('/', (req, res) => {
 					})
 					newWorkspace.save()
 					logger.info(`New workspace added: ${resp.data.team_name} on channel ${resp.data.incoming_webhook.channel}`)
-					res.send(`New workspace added: ${resp.data.team_name} on channel ${resp.data.incoming_webhook.channel}`)
-
+					res.render('main', {title: 'Lunchdoki - Workspace', message: `New workspace added: ${resp.data.team_name} on channel ${resp.data.incoming_webhook.channel}`})
 				}
 			})
 
 		})
 		.catch(err => {
 			logger.error(err)
-			res.status(500).send('An error occurred')
+			res.status(500).render('main', {title: 'Lunchdoki - Workspace',message:'An error occured'})
 		})
 
 })
