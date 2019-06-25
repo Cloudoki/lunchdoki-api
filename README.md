@@ -50,5 +50,6 @@ it to the next poll;
 - Total votes count displayed in real-time for each option
 - Ability to change your vote and remove it.
 - Each poll displays the address that match the typed location (Might not equal)
+- Ability to check every item information in detail on Zomato by clicking on it's name (displayed in blue)
 - Every option displayed is based on a range of 1km (but it does not mean that it's inside that range due to 
 related implemetations)
