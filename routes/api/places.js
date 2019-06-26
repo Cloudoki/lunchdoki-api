@@ -311,6 +311,15 @@ const zomatoRequest = async () => {
 						'type': 'mrkdwn',
 						'text': '*Hey <!everyone>* \n Here\'s a list of the closest restaurants in the area, shall we pick one?\n*' + finalLocation + '*',
 					},
+					'accessory': {
+						'type': 'button',
+						'text': {
+							'type': 'plain_text',
+							'text': 'Delete Poll',
+							'emoji': true,
+						},
+						'value': '1',
+					},
 				},
 				{
 					'type': 'section',
@@ -364,7 +373,6 @@ const zomatoDBOperations = async (req, res) => {
 	const loc = (locdefined !== null) ? locdefined.name : null
 	const urlParams = (locdefined !== null) ? locdefined.url.substring(locdefined.url.indexOf('?'), locdefined.url.length) : null
 	// DB Model Save/Update
-
 	zmModel.find({ location: loc, url_params: urlParams }, (err, docs) => {
 		if (docs.length === 0) { // Se não haver documentos cria
 			zomatoRequest().then((restheader) => {
@@ -372,6 +380,7 @@ const zomatoDBOperations = async (req, res) => {
 					location: loc,
 					url_params: urlParams,
 					slack_interface: restheader,
+					created_by: req.body.user_id,
 				})
 				riSave.save()
 				logger.info('[/test]: Item added to the DB')

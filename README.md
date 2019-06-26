@@ -53,3 +53,4 @@ it to the next poll;
 - Ability to check every item information in detail on Zomato by clicking on it's name (displayed in blue)
 - Every option displayed is based on a range of 1km (but it does not mean that it's inside that range due to 
 related implemetations)
+- Every poll can be permanently deleted by only the user who created it. 
