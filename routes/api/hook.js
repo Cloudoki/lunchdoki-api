@@ -44,6 +44,7 @@ const deleteCurrentPoll = async (payload,res) => {
 		})
 
 		const delResp = await zmRespModel.findOneAndDelete({_id: payload.actions[0].block_id})
+		res.send()
 		if(delResp)
 			logger.info('A poll was deleted')
 
