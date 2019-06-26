@@ -8,9 +8,63 @@ const config = require('../../config')
 const apiMapsKey = config.get('keys').gmaps
 
 // Mongoose - API Pool - Model
+const zmModal = require('../../models/z-basemodel')
 const zmRespModel = require('../../models/z-responsemodel')
 const zmLocation = require('../../models/z-locationmodel')
 const zmSearch = require('../../models/z-searchmodel')
+
+/**
+ * 
+ * @param {Object} payload -
+ * @param {Object} res -
+ * @returns {Object} -
+ */
+const deleteCurrentPoll = async (payload,res) => {
+
+	// Encontra o registo que tiver o selected a true
+	const locresp = await zmLocation.findOne({selected: true})
+	// Baseado no resultado que for obtido dele é retirado uma substring de um dos campos contidos
+	const zomatoURL_params = locresp.zomato_gen_url.substring(locresp.zomato_gen_url.indexOf('?'),locresp.zomato_gen_url.length)
+	
+	// Retorna o registo da votação que tem de ser apagada
+	const finalresp = await zmModal.findOneAndDelete({created_by: payload.user.id, url_params: zomatoURL_params})
+	if (finalresp)
+	{	
+		axios.post(payload.response_url,{
+			'response_type': 'ephemeral',
+			'replace_original': true,
+			'delete_original': true,
+			'attachments': [
+				{
+
+					'text': 'This poll was deleted from everywhere!',
+					'color': 'danger',
+				},
+			],
+		})
+
+		const delResp = await zmRespModel.findOneAndDelete({_id: payload.actions[0].block_id})
+		if(delResp)
+			logger.info('A poll was deleted')
+
+	} else {
+		axios.post(payload.response_url,{
+			'response_type': 'ephemeral',
+			'replace_original': false,
+			'delete_original': false,
+			'attachments': [
+				{
+
+					'text': 'You cannot delete a poll you didn\'t create',
+					'color': 'warning',
+				},
+			],
+		})
+		logger.info('Someone tried to delete a poll and failed')
+		res.send()
+
+	}
+}
 
 /**
  * 
@@ -383,7 +437,7 @@ router.post('/', async (req, res) => {
 		payload = null
 	}
 
-	if (typeof payload.callback_id != 'undefined') {
+	if (payload.callback_id && typeof payload.callback_id != 'undefined') {
 		const isValid = await dialogValidations(res, payload)
 		if (isValid) {
 			if (payload.submission.loc_input === null && payload.submission.loc_available !== null)
@@ -393,6 +447,10 @@ router.post('/', async (req, res) => {
 		}
 		res.send()
 	} else {
+
+		if (payload.actions[0] && payload.actions[0].type === 'button')
+			return await deleteCurrentPoll(payload, res)
+
 		let votes = {}
 		postPayloadData(payload, votes, res)
 	}
