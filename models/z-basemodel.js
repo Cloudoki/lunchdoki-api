@@ -6,6 +6,7 @@ const zbaseModelSchema = new Schema({
 	location: String,
 	url_params: String,
 	slack_interface: Object,
+	created_by: String,
 }, {
 	timestamps: true,
 })
