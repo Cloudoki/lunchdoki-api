@@ -438,7 +438,10 @@ router.post('/', async (req, res) => {
 		payload = null
 	}
 
-	if (payload && typeof payload.callback_id != 'undefined') {
+	if(payload === null)
+		return res.status(400).send()
+
+	if (payload.callback_id && typeof payload.callback_id != 'undefined') {
 		const isValid = await dialogValidations(res, payload)
 		if (isValid) {
 			if (payload.submission.loc_input === null && payload.submission.loc_available !== null)
