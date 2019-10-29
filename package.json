@@ -19,7 +19,7 @@
     "express": "^4.17.1",
     "geolib": "^2.0.24",
     "i": "^0.3.6",
-    "mongoose": "^5.5.15",
+    "mongoose": "^5.7.5",
     "mongoose-plugin-autoinc-fix": "^1.2.1",
     "mongoose-sequence": "^5.0.1",
     "pino": "^5.12.6",
