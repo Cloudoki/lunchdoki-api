@@ -23,7 +23,7 @@
     "mongoose-plugin-autoinc-fix": "^1.2.1",
     "mongoose-sequence": "^5.0.1",
     "pino": "^5.12.6",
-    "pug": "^2.0.4",
+    "pug": "^3.0.1",
     "querystring": "^0.2.0",
     "uuid": "^3.3.2"
   },
